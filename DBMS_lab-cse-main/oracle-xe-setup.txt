@@ -1,0 +1,105 @@
+#!/bin/bash
+
+set -e
+
+echo "======================================"
+echo "       ORACLE XE DOCKER SETUP"
+echo "======================================"
+
+echo ""
+echo "1. Updating Ubuntu packages..."
+sudo apt update
+
+echo ""
+echo "2. Installing Docker..."
+sudo apt install docker.io -y
+
+echo ""
+echo "3. Starting Docker..."
+sudo systemctl enable --now docker
+
+echo ""
+echo "4. Docker version:"
+docker --version
+
+echo ""
+echo "======================================"
+echo "Checking existing Oracle XE container..."
+echo "======================================"
+
+sudo docker ps -a
+
+echo ""
+echo "======================================"
+echo "Oracle XE logs (if container exists)"
+echo "======================================"
+
+if sudo docker inspect oracle-xe >/dev/null 2>&1; then
+    sudo docker logs oracle-xe
+else
+    echo "No existing oracle-xe container found."
+fi
+
+echo ""
+echo "======================================"
+echo "Removing existing Oracle XE container"
+echo "======================================"
+
+if sudo docker inspect oracle-xe >/dev/null 2>&1; then
+    sudo docker rm -f oracle-xe
+    echo "Existing oracle-xe container removed."
+else
+    echo "No existing oracle-xe container to remove."
+fi
+
+echo ""
+echo "======================================"
+echo "Creating Oracle XE container..."
+echo "======================================"
+
+sudo docker run -d \
+  --name oracle-xe \
+  -p 1521:1521 \
+  -p 5500:5500 \
+  -e ORACLE_PASSWORD=ifet \
+  gvenzl/oracle-xe:21-slim
+
+echo ""
+echo "======================================"
+echo "Oracle XE container started"
+echo "======================================"
+
+sudo docker ps
+
+echo ""
+echo "Waiting for Oracle XE to become ready..."
+echo "This may take a few minutes."
+
+until sudo docker exec oracle-xe bash -c "echo 'SELECT 1 FROM dual;' | sqlplus -s system/ifet@localhost:1521/XEPDB1" >/dev/null 2>&1
+do
+    echo "Oracle is not ready yet..."
+    sleep 5
+done
+
+echo ""
+echo "======================================"
+echo "Oracle XE is READY!"
+echo "======================================"
+
+echo ""
+echo "Connecting to Oracle XE..."
+echo ""
+
+sudo docker exec -it oracle-xe \
+  sqlplus system/ifet@localhost:1521/XEPDB1
+
+echo ""
+echo "======================================"
+echo "Oracle XE session closed."
+echo "======================================"
+
+read -p "Press Enter to close..."
+
+
+chmod +x ~/Desktop/oracle-xe-setup.sh
+~/Desktop/oracle-xe-setup.sh
